@@ -397,6 +397,23 @@ describe('Body methods with caching', () => {
       })
     }
 
+    test('req.formData() after req.text() keeps binary multipart file bytes', async () => {
+      const bytes = new Uint8Array([0xff, 0x00, 0x41])
+      const data = new FormData()
+      data.append('file', new Blob([bytes]), 'x.bin')
+      const req = new HonoRequest(
+        new Request('http://localhost', {
+          method: 'POST',
+          body: data,
+        })
+      )
+      const text = await req.text()
+      expect(await req.text()).toBe(text)
+      const file = (await req.formData()).get('file')
+      expect(file).toBeInstanceOf(Blob)
+      expect(new Uint8Array(await (file as Blob).arrayBuffer())).toEqual(bytes)
+    })
+
     test('req.formData() after req.text() for multipart/form-data', async () => {
       const boundary = '----hono-test-boundary'
       const multipart =

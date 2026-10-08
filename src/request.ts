@@ -240,6 +240,22 @@ export class HonoRequest<P extends string = '/', I extends Input['out'] = {}> {
       })
     }
 
+    // A multipart body read first as `text()` is lossy: UTF-8 replaces bytes
+    // such as 0xff. Keep the raw bytes so `formData()`, `arrayBuffer()`,
+    // `blob()`, and `bytes()` rebuild from them. `text()` still returns the
+    // decoded string. `arrayBuffer` is stored first so a later read finds the
+    // bytes rather than the string.
+    if (key === 'text') {
+      const contentType = raw.headers.get('content-type')
+      if (contentType && /^multipart\/form-data(?:\s|;|$)/i.test(contentType)) {
+        const buffer = raw.arrayBuffer()
+        bodyCache.arrayBuffer = buffer as any
+        const text = buffer.then((bytes) => new TextDecoder().decode(bytes))
+        bodyCache.text = text as any
+        return text
+      }
+    }
+
     return (bodyCache[key] = raw[key]())
   }
 
